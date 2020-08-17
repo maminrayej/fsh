@@ -1,2 +1,2 @@
 # fsh
-A fun and simple shell
+A fun and simple linux shell
