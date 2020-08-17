@@ -1,10 +1,14 @@
-mod read;
-mod process;
 mod preprocess;
+mod process;
+mod read;
 
 fn main() {
+    ctrlc::set_handler(move || {}).expect("Error setting Ctrl-C handler");
+
     read::read_loop();
 }
+
+// http://doc.downloadha.com/h/Documentaries/August2020/The.Speed.Cubers.2020/The.Speed.Cubers.2020.1080p.WEBRip.x264-RARBG_www.Downloadha.com_.mp4
 
 // fn fsh_loop() {
 //     print_prefix();

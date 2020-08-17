@@ -1,4 +1,5 @@
 use crate::preprocess::prompt;
+use crate::process::execute;
 use std::io::{stdin, stdout, Write};
 use termion::cursor::DetectCursorPos;
 use termion::event::Key;
@@ -10,7 +11,7 @@ pub fn read_loop() {
     let stdin = stdin();
 
     // Get the standard output stream and go to raw mode.
-    let mut stdout = stdout().into_raw_mode().unwrap();
+    let mut _stdout = stdout().into_raw_mode().unwrap();
 
     // This buffer contains user input
     // After every Enter this buffer will be collected and processed in order to run the command
@@ -19,42 +20,49 @@ pub fn read_loop() {
 
     // The print_prompt method prints the prompt and returns the minimum x coordinate that cursor can hold
     // Cursor can not go behind the prompt therefore this minimum value is the size of the printed prompt
-    let mut min_cursor_x_bound = print_prompt(&mut stdout);
+    let mut min_cursor_x_bound = print_prompt(&mut _stdout);
 
     for c in stdin.keys() {
-        let (cursor_x, cursor_y) = stdout.cursor_pos().unwrap();
+        let (cursor_x, cursor_y) = _stdout.cursor_pos().unwrap();
 
         match c.unwrap() {
             Key::Char('\n') => {
-                print!("\n\r");
-                min_cursor_x_bound = print_prompt(&mut stdout);
+                write!(_stdout, "\n\r");
+                _stdout.flush().unwrap();
+                
+                if !char_buf.is_empty() {
+                    execute(char_buf.iter().collect(), _stdout);
+                    _stdout = stdout().into_raw_mode().unwrap();
+                    char_buf.clear();
+                }
+                write!(_stdout, "{}", termion::clear::CurrentLine);
+                min_cursor_x_bound = print_prompt(&mut _stdout);
             }
             Key::Char(c) => {
                 char_buf.push(c);
                 print!("{}", c)
-            }
+            },
             Key::Ctrl(c) if c == 'c' => break,
-            Key::Left => move_cursor_left(&mut stdout, cursor_x, cursor_y, min_cursor_x_bound),
+            Key::Left => move_cursor_left(&mut _stdout, cursor_x, cursor_y, min_cursor_x_bound),
             Key::Right => move_cursor_right(
-                &mut stdout,
+                &mut _stdout,
                 cursor_x,
                 cursor_y,
                 char_buf.len() as u16 + min_cursor_x_bound,
             ),
             Key::Backspace => {
-                delete_last_char(&mut stdout, cursor_x, cursor_y, min_cursor_x_bound);
+                delete_last_char(&mut _stdout, cursor_x, cursor_y, min_cursor_x_bound);
                 char_buf.pop();
             }
             _ => continue,
         }
 
         // Flush again.
-        stdout.flush().unwrap();
+        _stdout.flush().unwrap();
     }
-
     // go to a clear line and exit
     print!("\n\r");
-    stdout.flush().unwrap();
+    _stdout.flush().unwrap();
 }
 
 // Prints the prompt
