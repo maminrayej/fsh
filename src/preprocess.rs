@@ -24,9 +24,6 @@ pub(crate) fn prompt() -> (String, usize) {
     let re = Regex::new(&home_dir_regex).unwrap();
     let current_path = re.replace(&current_path, "⌂|");
 
-    // Replace directory delimiters with special character
-    let current_path = current_path.replace("/", " ♦ ");
-
     let current_path_len = current_path.chars().count();
 
     let formatted_prompt = format!(

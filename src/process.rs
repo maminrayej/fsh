@@ -1,5 +1,5 @@
 use std::env;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::str;
 
 pub(crate) fn execute(command_line: String, stdout: termion::raw::RawTerminal<std::io::Stdout>) {
@@ -27,6 +27,7 @@ fn launch_command(command: &str, args: Vec<&str>) {
     if let Ok(child) = Command::new(command).args(args).spawn() {
         let output = child.wait_with_output().unwrap();
         let _output = str::from_utf8(&output.stdout).unwrap();
+
         print!("{}", _output);
     } else {
         println!("Something went wrong")

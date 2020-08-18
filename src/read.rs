@@ -27,21 +27,22 @@ pub fn read_loop() {
 
         match c.unwrap() {
             Key::Char('\n') => {
-                write!(_stdout, "\n\r");
+                write!(_stdout, "\n\r").unwrap();
                 _stdout.flush().unwrap();
-                
+
                 if !char_buf.is_empty() {
                     execute(char_buf.iter().collect(), _stdout);
                     _stdout = stdout().into_raw_mode().unwrap();
                     char_buf.clear();
                 }
-                write!(_stdout, "{}", termion::clear::CurrentLine);
+                write!(_stdout, "{}\r", termion::clear::CurrentLine).unwrap();
+                _stdout.flush().unwrap();
                 min_cursor_x_bound = print_prompt(&mut _stdout);
             }
             Key::Char(c) => {
                 char_buf.push(c);
                 print!("{}", c)
-            },
+            }
             Key::Ctrl(c) if c == 'c' => break,
             Key::Left => move_cursor_left(&mut _stdout, cursor_x, cursor_y, min_cursor_x_bound),
             Key::Right => move_cursor_right(
