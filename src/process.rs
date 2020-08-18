@@ -2,7 +2,7 @@ use std::env;
 use std::process::Command;
 use std::str;
 
-pub(crate) fn execute(command_line: String, stdout: termion::raw::RawTerminal<std::io::Stdout>) {
+pub(crate) fn execute(command_line: String) {
     // Tokenize command line
     let mut tokens: Vec<&str> = command_line
         .rsplit(|c| c == ' ' || c == '\t' || c == '\r')
@@ -16,10 +16,8 @@ pub(crate) fn execute(command_line: String, stdout: termion::raw::RawTerminal<st
         "pwd" => pwd(),
         "cd" => cd(args),
         "echo" => echo(args),
-        _ => {
-            std::mem::drop(stdout);
-            launch_command(command, args);
-        }
+        "exit" => exit(),
+        _ => launch_command(command, args),
     }
 }
 
@@ -47,6 +45,10 @@ fn echo(args: Vec<&str>) {
     println!("{}\r", args.join(" "));
 }
 
+fn exit() {
+    std::process::exit(0)
+}
+
 fn cd(args: Vec<&str>) {
     if args.len() > 0 {
         env::set_current_dir(args[0]).unwrap();
@@ -58,3 +60,5 @@ fn cd(args: Vec<&str>) {
         env::set_current_dir(&format!("/home/{}", username.trim())).unwrap();
     }
 }
+
+

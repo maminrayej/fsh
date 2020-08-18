@@ -1,5 +1,6 @@
 use crate::preprocess::prompt;
 use crate::process::execute;
+use glob::glob;
 use std::io::{stdin, stdout, Write};
 use termion::cursor::DetectCursorPos;
 use termion::event::Key;
@@ -27,17 +28,85 @@ pub fn read_loop() {
 
         match c.unwrap() {
             Key::Char('\n') => {
+                // Go to a new line
                 write!(_stdout, "\n\r").unwrap();
                 _stdout.flush().unwrap();
 
+                // Execute the command in buffer
                 if !char_buf.is_empty() {
-                    execute(char_buf.iter().collect(), _stdout);
+                    // Exit of raw mode
+                    std::mem::drop(_stdout);
+
+                    // Execute the command with normal tty
+                    execute(char_buf.iter().collect());
+
+                    // Go into raw mode again
                     _stdout = stdout().into_raw_mode().unwrap();
+
                     char_buf.clear();
                 }
+
+                // Clear the current line for prompt
                 write!(_stdout, "{}\r", termion::clear::CurrentLine).unwrap();
                 _stdout.flush().unwrap();
+
+                // Print the prompt
                 min_cursor_x_bound = print_prompt(&mut _stdout);
+            }
+            Key::Char('\t') => {
+                let command: String = char_buf.iter().collect();
+
+                let mut _index = command.len();
+
+                // first space before cursor
+                for (index, _char) in command.chars().rev().enumerate() {
+                    if _char == ' ' {
+                        _index = index
+                    }
+                }
+
+                // path glob
+                if command.len() - _index != 0 {
+                    let glob_text = &command[command.len() - _index..].trim();
+                    let glob_entries = get_entries_of_glob(glob_text);
+
+                    let mut suggestions = vec![];
+
+                    for entry in glob_entries {
+                        match entry {
+                            Ok(suggestion) => suggestions.push(suggestion),
+                            Err(_) => println!("Error occurred during glob search"),
+                        }
+                    }
+
+                    if suggestions.len() == 1 {
+                        let suggestion_str = suggestions.pop().unwrap().to_str().unwrap().to_string();
+
+                        for _char in suggestion_str.chars().skip(glob_text.chars().count()) {
+                            char_buf.push(_char);
+                        }
+                        
+                        print!("{}", &suggestion_str[glob_text.chars().count()..]);
+                        _stdout.flush().unwrap();
+                    } else if suggestions.len() > 1 {
+                        // Go to a new line
+                        println!("\r");
+
+                        _stdout.flush().unwrap();
+
+                        // Print all suggestions
+                        for path in suggestions {
+                            println!("{}\r", path.as_path().display());
+                        }
+
+                        // Print the prompt
+                        min_cursor_x_bound = print_prompt(&mut _stdout);
+
+                        // Print the already typed command
+                        print!("{}", command);
+                        _stdout.flush().unwrap();
+                    }
+                }
             }
             Key::Char(c) => {
                 char_buf.push(c);
@@ -64,6 +133,16 @@ pub fn read_loop() {
     // go to a clear line and exit
     print!("\n\r");
     _stdout.flush().unwrap();
+}
+
+fn get_entries_of_glob(path_str: &str) -> glob::Paths {
+    let path = std::path::Path::new(path_str);
+
+    if path.is_relative() {
+        glob(&format!("./{}*", path_str)).expect("Failed to read glob pattern")
+    } else {
+        glob(&format!("{}*", path_str)).expect("Failed to read glob pattern")
+    }
 }
 
 // Prints the prompt
