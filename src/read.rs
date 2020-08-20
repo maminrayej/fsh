@@ -56,18 +56,25 @@ pub fn read_loop() {
             Key::Char('\t') => {
                 let command: String = char_buf.iter().collect();
 
-                let mut _index = command.len();
+                let mut _index = 0;
 
+                let cursor_index = (cursor_x - min_cursor_x_bound) as usize;
+                // println!("\n\r {}", cursor_index);
                 // first space before cursor
-                for (index, _char) in command.chars().rev().enumerate() {
+                for (index, _char) in command.chars().rev().skip(command.len() - cursor_index).enumerate() {
+                    // if index == 0 {
+                    //     println!("\n\r {}\r", _char);
+                    // }
                     if _char == ' ' {
-                        _index = index
+                        _index = command.len() - ((command.len() - cursor_index) + index);
+                        break;
                     }
                 }
 
+                // println!("\n\r-{}-\r", _index);
                 // path glob
-                if command.len() - _index != 0 {
-                    let glob_text = &command[command.len() - _index..].trim();
+                if _index != 0 {
+                    let glob_text = &command[_index..cursor_index].trim();
                     let glob_entries = get_entries_of_glob(glob_text);
 
                     let mut suggestions = vec![];
@@ -81,12 +88,12 @@ pub fn read_loop() {
 
                     // Fill the rest of user typed text if there is only one suggestion
                     if suggestions.len() == 1 {
-                        let suggestion_str = suggestions.pop().unwrap().to_str().unwrap().to_string();
+                        let suggestion_str =
+                            suggestions.pop().unwrap().to_str().unwrap().to_string();
 
                         for _char in suggestion_str.chars().skip(glob_text.chars().count()) {
                             char_buf.push(_char);
                         }
-                        
                         print!("{}", &suggestion_str[glob_text.chars().count()..]);
                         _stdout.flush().unwrap();
                     } else if suggestions.len() > 1 {
@@ -118,13 +125,13 @@ pub fn read_loop() {
                 char_buf.clear();
 
                 min_cursor_x_bound = print_prompt(&mut _stdout);
-            },
+            }
             Key::Ctrl(c) if c == 'd' => {
                 print!("exit");
                 _stdout.flush().unwrap();
 
                 break;
-            },
+            }
             Key::Left => move_cursor_left(&mut _stdout, cursor_x, cursor_y, min_cursor_x_bound),
             Key::Right => move_cursor_right(
                 &mut _stdout,
@@ -160,9 +167,11 @@ fn get_entries_of_glob(path_str: &str) -> glob::Paths {
     let path = std::path::Path::new(path_str);
 
     if path.is_relative() {
-        glob(&format!("./{}{postfix}", path_str, postfix=postfix)).expect("Failed to read glob pattern")
+        glob(&format!("./{}{postfix}", path_str, postfix = postfix))
+            .expect("Failed to read glob pattern")
     } else {
-        glob(&format!("{}{postfix}", path_str, postfix=postfix)).expect("Failed to read glob pattern")
+        glob(&format!("{}{postfix}", path_str, postfix = postfix))
+            .expect("Failed to read glob pattern")
     }
 }
 
