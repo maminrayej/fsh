@@ -79,6 +79,7 @@ pub fn read_loop() {
                         }
                     }
 
+                    // Fill the rest of user typed text if there is only one suggestion
                     if suggestions.len() == 1 {
                         let suggestion_str = suggestions.pop().unwrap().to_str().unwrap().to_string();
 
@@ -91,8 +92,6 @@ pub fn read_loop() {
                     } else if suggestions.len() > 1 {
                         // Go to a new line
                         println!("\r");
-
-                        _stdout.flush().unwrap();
 
                         // Print all suggestions
                         for path in suggestions {
@@ -110,9 +109,22 @@ pub fn read_loop() {
             }
             Key::Char(c) => {
                 char_buf.push(c);
-                print!("{}", c)
+                print!("{}", c);
+                _stdout.flush().unwrap();
             }
-            Key::Ctrl(c) if c == 'c' => break,
+            Key::Ctrl(c) if c == 'c' => {
+                println!("^C\r");
+
+                char_buf.clear();
+
+                min_cursor_x_bound = print_prompt(&mut _stdout);
+            },
+            Key::Ctrl(c) if c == 'd' => {
+                print!("exit");
+                _stdout.flush().unwrap();
+
+                break;
+            },
             Key::Left => move_cursor_left(&mut _stdout, cursor_x, cursor_y, min_cursor_x_bound),
             Key::Right => move_cursor_right(
                 &mut _stdout,
@@ -136,12 +148,21 @@ pub fn read_loop() {
 }
 
 fn get_entries_of_glob(path_str: &str) -> glob::Paths {
+    let postfix: String;
+
+    // If user already used '*', don't add it
+    if path_str.contains('*') {
+        postfix = String::new();
+    } else {
+        postfix = String::from("*");
+    }
+
     let path = std::path::Path::new(path_str);
 
     if path.is_relative() {
-        glob(&format!("./{}*", path_str)).expect("Failed to read glob pattern")
+        glob(&format!("./{}{postfix}", path_str, postfix=postfix)).expect("Failed to read glob pattern")
     } else {
-        glob(&format!("{}*", path_str)).expect("Failed to read glob pattern")
+        glob(&format!("{}{postfix}", path_str, postfix=postfix)).expect("Failed to read glob pattern")
     }
 }
 
