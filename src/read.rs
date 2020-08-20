@@ -59,19 +59,20 @@ pub fn read_loop() {
                 let mut _index = 0;
 
                 let cursor_index = (cursor_x - min_cursor_x_bound) as usize;
-                // println!("\n\r {}", cursor_index);
+
                 // first space before cursor
-                for (index, _char) in command.chars().rev().skip(command.len() - cursor_index).enumerate() {
-                    // if index == 0 {
-                    //     println!("\n\r {}\r", _char);
-                    // }
+                for (index, _char) in command
+                    .chars()
+                    .rev()
+                    .skip(command.len() - cursor_index)
+                    .enumerate()
+                {
                     if _char == ' ' {
                         _index = command.len() - ((command.len() - cursor_index) + index);
                         break;
                     }
                 }
 
-                // println!("\n\r-{}-\r", _index);
                 // path glob
                 if _index != 0 {
                     let glob_text = &command[_index..cursor_index].trim();
