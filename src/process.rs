@@ -2,8 +2,9 @@ use glob::glob;
 use std::env;
 use std::process::Command;
 use std::str;
+use crate::history::History;
 
-pub(crate) fn execute(command_line: String) {
+pub(crate) fn execute(command_line: String, history_handler: &History) {
     // Tokenize command line
     let mut tokens: Vec<&str> = command_line
         .rsplit(|c| c == ' ' || c == '\t' || c == '\r')
@@ -18,6 +19,7 @@ pub(crate) fn execute(command_line: String) {
         "cd" => cd(args),
         "echo" => echo(args),
         "exit" => exit(),
+        "history" => history(history_handler.get_history_elements()),
         _ => launch_command(command, args),
     }
 }
@@ -62,6 +64,11 @@ fn cd(args: Vec<String>) {
     }
 }
 
+fn history(history_elements: Vec<String>) {
+    println!("{}\r", history_elements.join("\n"));
+}
+
+// utils
 fn expand_arguments<'a>(args: Vec<&str>) -> Vec<String> {
     let mut expanded_args = Vec::new();
 
