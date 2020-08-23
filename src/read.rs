@@ -9,34 +9,44 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::style;
 
+// This functions process keyboard events like inputting a char or pressing Ctrl-d and etc
+// It needs flags and variables to share information across events
 pub fn read_loop(mut history_handler: History) {
     // Get the standard input stream
     let stdin = stdin();
 
-    // Get the standard output stream and go to raw mode.
+    // Get the standard output stream and go to raw mode
     let mut _stdout = stdout().into_raw_mode().unwrap();
 
     // This buffer contains user input
     // After every Enter this buffer will be collected and processed in order to run the command
-    // This buffer will be updated after every insert and delete
+    // This buffer will be updated after every event
     let mut char_buf = Vec::<char>::new();
 
+    // Contains suggestions based on user input
     let mut suggestions = Vec::<String>::new();
+    // Indicates what suggestion should be displayed
     let mut suggestion_index = 0;
+
+    // Indicated if we are in search mode or not
     let mut search_mode = false;
 
+    // Indicates what command in history buffer should be displayed
     let mut history_index: i64 = -1;
 
     // The print_prompt method prints the prompt and returns the minimum x coordinate that cursor can hold
     // Cursor can not go behind the prompt therefore this minimum value is the size of the printed prompt
     let mut min_cursor_x_bound = print_prompt(&mut _stdout);
 
+    // Process each keyboard event
     for c in stdin.keys() {
+        // Get cursor position in terminal
         let (cursor_x, cursor_y) = _stdout.cursor_pos().unwrap();
 
         match c.unwrap() {
             Key::Char('\n') => {
                 if search_mode {
+                    // Reset search variables and flags
                     search_mode = false;
                     suggestions.clear();
                     suggestion_index = 0;
@@ -57,7 +67,7 @@ pub fn read_loop(mut history_handler: History) {
 
                 // Execute the command in buffer
                 if !char_buf.is_empty() {
-                    // Exit of raw mode
+                    // Exit of raw mode to give a normal terminal to child process
                     std::mem::drop(_stdout);
 
                     // Extract command
@@ -67,7 +77,7 @@ pub fn read_loop(mut history_handler: History) {
                     history_handler.add_command(command.clone());
 
                     // Execute the command with normal tty
-                    execute(command, &history_handler);
+                    execute(command, &mut history_handler);
 
                     // Go into raw mode again
                     _stdout = stdout().into_raw_mode().unwrap();
@@ -166,13 +176,14 @@ pub fn read_loop(mut history_handler: History) {
                 print!("{}", c);
                 _stdout.flush().unwrap();
 
+                // Update suggestion based on this new char
                 if search_mode {
-                    // already typed command
+                    // Already typed command
                     let command: String = char_buf.iter().collect();
 
                     suggestion_index = 0;
 
-                    // get suggestions for this command
+                    // Get suggestions for this command
                     suggestions = history_handler.search(&command);
 
                     print_suggestion(
@@ -208,14 +219,14 @@ pub fn read_loop(mut history_handler: History) {
                 break;
             }
             Key::Ctrl(c) if c == 'r' => {
-                // enable search mode
+                // Enable search mode
                 search_mode = true;
                 suggestion_index = 0;
 
-                // already typed command
+                // Already typed command
                 let command: String = char_buf.iter().collect();
 
-                // get suggestions for this command
+                // Get suggestions for this command
                 suggestions = history_handler.search(&command);
 
                 print_suggestion(
@@ -236,9 +247,10 @@ pub fn read_loop(mut history_handler: History) {
             ),
             Key::Up => {
                 if search_mode {
-                    // already typed command
+                    // Already typed command
                     let command: String = char_buf.iter().collect();
 
+                    // If there exists a suggestion after current one, move index to the next one
                     if let Some(_) = suggestions.get(suggestion_index + 1) {
                         suggestion_index += 1;
                     }
@@ -250,25 +262,22 @@ pub fn read_loop(mut history_handler: History) {
                         &mut _stdout,
                     );
                 } else {
-                    // println!("\n\rcurrent:{}\r", history_index);
                     history_index += 1;
                     if let Some(history_element) = history_handler.get(history_index as usize) {
-                        // println!("\n\rup:{}\r", history_index);
-                        char_buf.clear();
-                        for _char in history_element.chars() {
-                            char_buf.push(_char);
-                        }
+                        // Populate character buffer with suggestion
+                        char_buf = history_element.chars().into_iter().collect();
 
-                        // clear current line
+                        // Clear current line
                         write!(_stdout, "\r{}", termion::clear::CurrentLine).unwrap();
 
                         // Print the prompt
                         min_cursor_x_bound = print_prompt(&mut _stdout);
 
-                        // print the history element
+                        // Print the history element
                         print!("{}", history_element);
                         _stdout.flush().unwrap();
                     } else {
+                        // If there is no more command in history, revert history index
                         history_index -= 1;
                     }
                 }
@@ -278,7 +287,8 @@ pub fn read_loop(mut history_handler: History) {
                     if suggestion_index == 0 {
                         continue;
                     }
-                    // already typed command
+
+                    // Already typed command
                     let command: String = char_buf.iter().collect();
 
                     if let Some(_) = suggestions.get(suggestion_index - 1) {
@@ -293,10 +303,9 @@ pub fn read_loop(mut history_handler: History) {
                     );
                 } else {
                     if history_index <= 0 {
-
                         char_buf.clear();
 
-                        // clear current line
+                        // Clear current line
                         write!(_stdout, "\r{}", termion::clear::CurrentLine).unwrap();
 
                         // Print the prompt
@@ -309,35 +318,49 @@ pub fn read_loop(mut history_handler: History) {
 
                     history_index -= 1;
                     if let Some(history_element) = history_handler.get(history_index as usize) {
-                        // println!("\n\rdown:{}\r", history_index);
+                        // Populate character buffer with suggestion
+                        char_buf = history_element.chars().into_iter().collect();
 
-                        char_buf.clear();
-                        for _char in history_element.chars() {
-                            char_buf.push(_char);
-                        }
-
-                        // clear current line
+                        // Clear current line
                         write!(_stdout, "\r{}", termion::clear::CurrentLine).unwrap();
 
                         // Print the prompt
                         min_cursor_x_bound = print_prompt(&mut _stdout);
 
-                        // print the history element
+                        // Print the history element
                         print!("{}", history_element);
                         _stdout.flush().unwrap();
                     }
                 }
             }
             Key::Backspace => {
-                delete_last_char(&mut _stdout, cursor_x, cursor_y, min_cursor_x_bound);
+                // Get cursor position relative to char buf boundaries
+                let cursor_index = cursor_x - min_cursor_x_bound;
+                if cursor_index != 0 {
+                    // Remove character before cursor
+                    char_buf.remove((cursor_index - 1) as usize);
 
-                char_buf.pop();
+                    // Move cursor to the deleted char position
+                    write!(_stdout, "{}", termion::cursor::Goto(cursor_x - 1, cursor_y)).unwrap();
 
+                    // Clear the line from cursor position until new line
+                    write!(_stdout, "{}", termion::clear::UntilNewline).unwrap();
+
+                    // Print rest of the command(after deleted character)
+                    let rest_of_command: String = char_buf.iter().skip((cursor_index - 1) as usize).collect();
+                    print!("{}", rest_of_command);
+
+                    // Move back cursor to position of deleted char
+                    write!(_stdout, "{}", termion::cursor::Goto(cursor_x - 1, cursor_y)).unwrap();
+                    _stdout.flush().unwrap();
+                }
+
+                // Update suggestion based on new command
                 if search_mode {
-                    // already typed command
+                    // Already typed command
                     let command: String = char_buf.iter().collect();
 
-                    // get suggestions for this command
+                    // Get suggestions for this command
                     suggestions = history_handler.search(&command);
 
                     suggestion_index = 0;
@@ -358,23 +381,22 @@ pub fn read_loop(mut history_handler: History) {
         // Flush again.
         _stdout.flush().unwrap();
     }
-    // go to a clear line and exit
-    print!("\n\r");
-    _stdout.flush().unwrap();
+    // Go to a clear line and exit
+    println!("\r");
 }
 
+// Print the suggestion in search mode
 fn print_suggestion(
     command: &String,
     suggestion: Option<&String>,
     cursor_y: u16,
     _stdout: &mut termion::raw::RawTerminal<std::io::Stdout>,
 ) {
-    let cropped_suggestion_text;
-    if let Some(suggestion_str) = suggestion {
-        cropped_suggestion_text = &suggestion_str[command.len()..];
+    let cropped_suggestion_text = if let Some(suggestion_str) = suggestion {
+        &suggestion_str[command.len()..]
     } else {
-        cropped_suggestion_text = "";
-    }
+        ""
+    };
 
     let formatted_suggestion_text = format!(
         "{}{}{}",
@@ -383,28 +405,27 @@ fn print_suggestion(
         style::NoUnderline
     );
 
-    // print search icon
+    // Print search icon + command + (cropped suggestion)
     write!(
         _stdout,
-        "\r{clear_line}🔍: {command}{suggestion}{reset_cursor}",
+        "\r{clear_line}🔍: {command}{suggestion}{adjust_cursor}",
         clear_line = termion::clear::CurrentLine,
         suggestion = formatted_suggestion_text,
         command = command,
-        reset_cursor = termion::cursor::Goto(5 + command.len() as u16, cursor_y)
+        adjust_cursor = termion::cursor::Goto(5 + command.len() as u16, cursor_y) // Move cursor right after typed command
     )
     .unwrap();
     _stdout.flush().unwrap();
 }
 
+// Get entries based on `path_str`
 fn get_entries_of_glob(path_str: &str) -> glob::Paths {
-    let postfix: String;
-
     // If user already used '*', don't add it
-    if path_str.contains('*') {
-        postfix = String::new();
+    let postfix = if path_str.contains('*') {
+        String::new()
     } else {
-        postfix = String::from("*");
-    }
+        String::from("*")
+    };
 
     let path = std::path::Path::new(path_str);
 
@@ -462,24 +483,4 @@ fn move_cursor_right(
         termion::cursor::Goto(std::cmp::min(cursor_x + 1, max_cursor_x_bound), cursor_y),
     )
     .unwrap();
-}
-
-// Replaces the character behind the cursor with space(" ")
-fn delete_last_char(
-    stdout: &mut termion::raw::RawTerminal<std::io::Stdout>,
-    cursor_x: u16,
-    cursor_y: u16,
-    min_cursor_x_bound: u16,
-) {
-    // Must not delete any char from prompt
-    if cursor_x - 1 >= min_cursor_x_bound {
-        write!(
-            stdout,
-            "{}{}{}",
-            termion::cursor::Goto(cursor_x - 1, cursor_y),
-            " ",
-            termion::cursor::Goto(cursor_x - 1, cursor_y),
-        )
-        .unwrap();
-    }
 }

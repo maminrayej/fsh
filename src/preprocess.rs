@@ -4,15 +4,15 @@ use regex::Regex;
 use std::process;
 
 // Returns a prompt and its length without any style/color
-pub(crate) fn prompt() -> (String, usize) {
+pub fn prompt() -> (String, usize) {
     // Get current working directory
     let mut current_path = String::new();
     if let Ok(path) = env::current_dir() {
         current_path = path.to_str().unwrap().to_string();
     }
 
-    // Get system username of the user
     let mut username = String::new();
+
     // Launch whoami program and collect its output
     if let Ok(output) = process::Command::new("whoami").output() {
         // Output of whoami program is the username
@@ -40,6 +40,6 @@ pub(crate) fn prompt() -> (String, usize) {
 
     return (
         formatted_prompt,
-        current_path_len + dollar_sign_len + final_space_len,
+        current_path_len + dollar_sign_len + final_space_len, // Length of prompt
     );
 }
