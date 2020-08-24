@@ -1,5 +1,5 @@
 # fsh
-A simple linux shell written in rust
+A simple linux shell
 
 # Supports simple glob
 ![](assets/glob.png)

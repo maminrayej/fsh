@@ -6,7 +6,8 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 categories = ["command-line-utilities"]
 description = "A simple shell"
-repository = "https://github.com/maminrayej/rudac"
+readme = "README.md"
+repository = "https://github.com/maminrayej/fsh"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
