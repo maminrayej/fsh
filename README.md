@@ -1,2 +1,8 @@
 # fsh
-A fun and simple linux shell
+A simple linux shell written in rust
+
+# Supports simple glob
+![](assets/glob.png)
+
+# Supports simple backward search
+![](assets/search.png)
